@@ -1,9 +1,12 @@
 require([
     "esri/views/SceneView",
     "esri/WebScene",
+    "esri/layers/GraphicsLayer",
+    "esri/Graphic",
     "dojo/domReady!"
   ], function(
-    SceneView, WebScene
+    SceneView, WebScene,
+    GraphicsLayer, Graphic
   ) {
 
     'use strict';
@@ -20,19 +23,74 @@ require([
             }
         });
     
-        const view = new SceneView({
+        const sceneView = new SceneView({
             map: scene,
             container: DOM_ID_SCENE_VIEW_CONTAINER,
         });
+
+        const initGraphicLayer = ()=>{
+            const graphicsLayer = new GraphicsLayer({id: 'gLayer'});
+            scene.add(graphicsLayer);
+        };
+
+        const renderTripIndicatorPt = (x, y, z)=>{
+
+            const gLayer = scene.findLayerById('gLayer');
+            gLayer.removeAll();
+
+            if(x || y || x){
+
+                const pointGeom = {
+                    type: "point", // autocasts as new Point()
+                    x: x,
+                    y: y,
+                    z: z,
+                    spatialReference: {
+                        wkid: 3857,
+                    }
+                };
+    
+                const markerSymbol = {
+                    type: "simple-marker", // autocasts as new SimpleMarkerSymbol()
+                    color: [226, 119, 40],
+                    outline: { // autocasts as new SimpleLineSymbol()
+                        color: [255, 255, 255],
+                        width: 2
+                    }
+                };
+        
+                const pointGraphic = new Graphic({
+                    geometry: pointGeom,
+                    symbol: markerSymbol
+                });
+        
+                gLayer.add(pointGraphic);
+            }
+
+        };
+
+        sceneView.when(function(){
+            initGraphicLayer();
+            view.init();
+        });
+
+        return {
+            renderTripIndicatorPt
+        };
 
     };
 
     const View = function(){
 
-        this.chart = new ElevationProfileChart({
-            containerID: DOM_ID_CHART_CONTAINER,
-            data: helper.getElevationProfileData()
-        });
+        this.chart = null;
+
+        this.init = ()=>{
+            console.log('init view');
+            this.chart = new ElevationProfileChart({
+                containerID: DOM_ID_CHART_CONTAINER,
+                data: helper.getElevationProfileData()
+            });
+        };
 
     };
 
@@ -40,33 +98,43 @@ require([
 
         // set the dimensions and margins of the graph
         const container = options.containerID ? document.getElementById(options.containerID) : null;
-        const margin = { top: 20, right: 20, bottom: 30, left: 50 };
-        const data = options.data;
+        const margin = { top: 20, right: 20, bottom: 30, left: 45 };
+        // const data = options.data;
+        const data = options.data.map(d=>{
+            return {
+                x: d[0],
+                y: d[1],
+                z: d[2],
+                profileLength: d[3]
+            }
+        });
 
         let width = container.offsetWidth  - margin.left - margin.right;
         let height = container.offsetHeight - margin.top - margin.bottom;
 
         let xScale = d3.scaleLinear()
             .range([0, width])
-            .domain([ 0, data[data.length - 1][3] ]);
+            .domain([ 0, data[data.length - 1].profileLength ]);
 
         // let fbExt = d3.extent(data, function(d) { return d[2]; });
         // console.log(fbExt);
 
         let yScale = d3.scaleLinear()
             .range([height, 0])
-            .domain(d3.extent(data, function(d) { return d[2]; }));
+            .domain([1500, d3.max(data, function(d) { return d.z; })]);
 
         // define the area
         let area = d3.area()
-            .x(function(d) { return xScale(d[3]); })
+            .x(function(d) { return xScale(d.profileLength); })
             .y0(height)
-            .y1(function(d) { return yScale(d[2]); });
+            .y1(function(d) { return yScale(d.z); });
 
         // define the line
         let valueline = d3.line()
-            .x(function(d) { return xScale(d[3]); })
-            .y(function(d) { return yScale(d[2]); });
+            .x(function(d) { return xScale(d.profileLength); })
+            .y(function(d) { return yScale(d.z); });
+        
+        // let verticalReferenceLine = null;
 
         let svg = d3.select("#"+ options.containerID)
             .append("svg")
@@ -76,33 +144,108 @@ require([
         let g = svg.append("g")
             .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-        // add the area
-        g.append("path")
-            .data([data])
-            .attr("class", "area")
-            .attr("d", area);
-            // .on('click', function(d){
-            //     console.log(this);
-            // });
+        let focus = null;
 
-        // add the valueline path.
-        g.append("path")
-            .data([data])
-            .attr("class", "line")
-            .attr("d", valueline);
+        const getDataByXValue = function(xVal){
 
-        // add the X Axis
-        g.append("g")
-            .attr("transform", "translate(0," + height + ")")
-            .call(d3.axisBottom(xScale));
+            const bisectDistanceFromOrigin = d3.bisector(d => d.profileLength).left;
+            const i = bisectDistanceFromOrigin(data, xVal);
+            const d0 = data[i - 1];
+            const d1 = data[i];
+            const outputData = xVal - d0.profileLength > d1.profileLength - xVal ? d1 : d0;
 
-        // add the Y Axis
-        g.append("g")
-            .call(d3.axisLeft(yScale));
+            return outputData;
+        };
+
+        const overlayOnMouseMoveHandler = function(){
+            let mousePositionX = d3.mouse(this)[0];
+            let xValueByMousePosition = xScale.invert(mousePositionX);
+            let targetData = getDataByXValue(xValueByMousePosition);
+
+            setFocus(targetData.profileLength, targetData.z);
+            app.renderTripIndicatorPt(targetData.x, targetData.y, targetData.z + 20);
+            // console.log('targetData', targetData);
+        };
+
+        const renderChart = ()=>{
+
+            // add the area
+            g.append("path")
+                .data([data])
+                .attr("class", "area")
+                .attr("d", area);
+                // .on('click', function(d){
+                //     console.log(this);
+                // });
+
+            // add the valueline path.
+            g.append("path")
+                .data([data])
+                .attr("class", "line")
+                .attr("d", valueline);
+
+            // add the X Axis
+            g.append("g")
+                .attr("transform", "translate(0," + height + ")")
+                .call(d3.axisBottom(xScale).tickSizeOuter(-height));
+
+            // add the Y Axis
+            g.append("g")
+                .call(d3.axisLeft(yScale).ticks(4).tickSizeOuter(0).tickSizeInner(-width));
+        };
+
+        const initFocus = ()=>{
+
+            focus = g.append('g')
+                .attr('class', 'focus')
+                .style('display', 'none');
+      
+            focus.append('circle')
+                .style('fill', 'rgba(230,230,230,.8)')
+                .style('stroke', 'rgba(230,230,230,.6)')
+                .attr('r', 3);
         
+            focus.append('line')
+                .classed('y', true)
+                .attr('stroke', 'rgba(230,230,230,.6)');
+        
+            // focus.append('text')
+            //     .attr('x', 9)
+            //     .attr('dy', '.35em');
 
-        // console.log('generate ElevationProfileChart', options)
-        // console.log(width, height);
+            // add a overlay to the background that we will use to handle mouse events
+            g.append("rect")
+                .attr('class', 'overlay')
+                .attr("width", width)
+                .attr("height", height)
+                .style('fill', 'rgba(0,0,0,0)')
+                .on("mousemove", overlayOnMouseMoveHandler)
+                .on("mouseover", function() {
+                    focus.style("display", null);
+                })
+                .on('mouseout', function(){
+                    focus.style("display", "none");
+                    app.renderTripIndicatorPt(null);
+                });
+        };
+
+        const setFocus = (xVal, yVal)=>{
+
+            const elevLabel = parseInt(+yVal) + ' ft';
+
+            focus.attr('transform', `translate(${xScale(xVal)}, ${yScale(yVal)})`);
+
+            focus.select('line.y')
+              .attr('x1', 0)
+              .attr('x2', 0)
+              .attr('y1', 0)
+              .attr('y2', height - yScale(yVal));
+
+            // focus.select('text').text(elevLabel);
+        };
+
+        renderChart();
+        initFocus();
     };
 
     const Helper = function(){
@@ -115,7 +258,6 @@ require([
                 return accu.concat(curr);
             }, []);
 
-            console.log(data);
             return data;
         };
 
@@ -127,6 +269,10 @@ require([
     const helper = new Helper();
     const app = new App();
     const view = new View();
+
+    window.foobarDebug = {
+        moveTripIndicatorPt: app.moveTripIndicatorPt
+    }
     
 
 });

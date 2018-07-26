@@ -17,18 +17,34 @@ body,
     /* background-color: #efefef; */
 }
 
+.panel-semi-transparent {
+    background-color: rgba(0, 0, 0, .8);
+}
+
 #elevationProfileChartDiv {
     height: 100%;
     width: 100%;
-    background-color: #efefef;
+    background-color: rgba(0, 0, 0, .3);
 }
 
 .line {
     fill: none;
-    stroke: steelblue;
-    stroke-width: 2px;
+    stroke: #778C7E;
+    stroke-width: 1px;
 }
   
 .area {
-    fill: lightsteelblue;
+    fill: rgba(116,122,83, .8);
 }
+
+.domain {
+    stroke: rgba(230,230,230,.3);
+}
+
+.tick line {
+    stroke: rgba(230,230,230,.3);
+  }
+  
+.tick text{
+    fill: rgba(230,230,230,.8);
+} 
