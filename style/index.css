@@ -12,7 +12,7 @@ body,
     left: calc((100% - 1000px) / 2);
     bottom: 20px;
     width: 1000px;
-    height: 200px;
+    height: 230px;
     z-index: 10;
     /* background-color: #efefef; */
 }
@@ -22,9 +22,18 @@ body,
 }
 
 #elevationProfileChartDiv {
+    position: relative;
     height: 100%;
     width: 100%;
     background-color: rgba(0, 0, 0, .3);
+}
+
+#chartLegendDiv {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100%;
+    /* padding: .5rem 1rem; */
 }
 
 .line {

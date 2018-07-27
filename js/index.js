@@ -82,14 +82,39 @@ require([
 
     const View = function(){
 
+        const $chartLegendDiv = document.getElementById('chartLegendDiv');
+        const $valHolderDist = document.querySelectorAll('.val-holder-distance');
+        const $valHolderElev = document.querySelectorAll('.val-holder-elevation');
+        const $showOnHoverElem = document.querySelectorAll('.show-on-hover');
+
         this.chart = null;
 
         this.init = ()=>{
-            console.log('init view');
             this.chart = new ElevationProfileChart({
                 containerID: DOM_ID_CHART_CONTAINER,
                 data: helper.getElevationProfileData()
             });
+        };
+
+        this.showChartLegend = (distanceVal, elevationVal)=>{
+            // $valHolderDist.text(`distance: ${distanceVal}km`);
+            // $valHolderElev.text(`distance: ${elevationVal}m`);
+            // $chartLegendDiv.toggleClass
+
+            if(distanceVal && elevationVal){
+                $valHolderDist.forEach(d=>{
+                    d.textContent = `distance: ${distanceVal/1000}km`;
+                });
+    
+                $valHolderElev.forEach(d=>{
+                    d.textContent = `elevation: ${elevationVal}m`;
+                });
+
+                $showOnHoverElem.forEach(k=>{ k.classList.remove('hide'); })
+
+            } else {
+                $showOnHoverElem.forEach(k=>{ k.classList.add('hide'); })
+            }
         };
 
     };
@@ -98,7 +123,7 @@ require([
 
         // set the dimensions and margins of the graph
         const container = options.containerID ? document.getElementById(options.containerID) : null;
-        const margin = { top: 20, right: 20, bottom: 30, left: 45 };
+        const margin = { top: 40, right: 20, bottom: 30, left: 45 };
         // const data = options.data;
         const data = options.data.map(d=>{
             return {
@@ -165,6 +190,8 @@ require([
             setFocus(targetData.profileLength, targetData.z);
             app.renderTripIndicatorPt(targetData.x, targetData.y, targetData.z + 20);
             // console.log('targetData', targetData);
+
+            view.showChartLegend(Math.floor(targetData.profileLength), Math.floor(targetData.z));
         };
 
         const renderChart = ()=>{
@@ -226,6 +253,7 @@ require([
                 .on('mouseout', function(){
                     focus.style("display", "none");
                     app.renderTripIndicatorPt(null);
+                    view.showChartLegend(null);
                 });
         };
 
@@ -270,9 +298,5 @@ require([
     const app = new App();
     const view = new View();
 
-    window.foobarDebug = {
-        moveTripIndicatorPt: app.moveTripIndicatorPt
-    }
-    
 
 });
