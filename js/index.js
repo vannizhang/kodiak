@@ -103,11 +103,11 @@ require([
 
             if(distanceVal && elevationVal){
                 $valHolderDist.forEach(d=>{
-                    d.textContent = `distance: ${distanceVal/1000}km`;
+                    d.textContent = `distance: ${distanceVal}miles`;
                 });
     
                 $valHolderElev.forEach(d=>{
-                    d.textContent = `elevation: ${elevationVal}m`;
+                    d.textContent = `elevation: ${helper.numberWithCommas(elevationVal)}ft`;
                 });
 
                 $showOnHoverElem.forEach(k=>{ k.classList.remove('hide'); })
@@ -125,12 +125,16 @@ require([
         const container = options.containerID ? document.getElementById(options.containerID) : null;
         const margin = { top: 40, right: 20, bottom: 30, left: 45 };
         // const data = options.data;
+
         const data = options.data.map(d=>{
+            const profileLengthInMile = d[3] * 0.000621371;
+            const elevInFt = d[2] * 3.28084; // convert z from meter to foot
+
             return {
                 x: d[0],
                 y: d[1],
-                z: d[2],
-                profileLength: d[3]
+                z: elevInFt,
+                profileLength: profileLengthInMile
             }
         });
 
@@ -146,7 +150,7 @@ require([
 
         let yScale = d3.scaleLinear()
             .range([height, 0])
-            .domain([1500, d3.max(data, function(d) { return d.z; })]);
+            .domain([5000, d3.max(data, function(d) { return d.z; })]);
 
         // define the area
         let area = d3.area()
@@ -188,10 +192,10 @@ require([
             let targetData = getDataByXValue(xValueByMousePosition);
 
             setFocus(targetData.profileLength, targetData.z);
-            app.renderTripIndicatorPt(targetData.x, targetData.y, targetData.z + 20);
+            app.renderTripIndicatorPt(targetData.x, targetData.y, (targetData.z / 3.28084  + 20));
             // console.log('targetData', targetData);
 
-            view.showChartLegend(Math.floor(targetData.profileLength), Math.floor(targetData.z));
+            view.showChartLegend(targetData.profileLength.toFixed(2), Math.floor(targetData.z));
         };
 
         const renderChart = ()=>{
@@ -210,6 +214,20 @@ require([
                 .data([data])
                 .attr("class", "line")
                 .attr("d", valueline);
+
+            // const label1 = g.append('g')
+            //     .attr('class', 'label')
+            //     .attr('transform', `translate(${xScale(15)}, ${yScale(7000)})`);
+
+            // label1.append('circle')
+            //     .style('fill', 'rgba(230,230,230,.8)')
+            //     .style('stroke', 'rgba(230,230,230,.6)')
+            //     .attr('r', 3);
+
+            // label1.append('text')
+            //     .text('foobar')
+            //     .attr('x', 9)
+            //     .attr('dy', '.35em');
 
             // add the X Axis
             g.append("g")
@@ -272,7 +290,47 @@ require([
             // focus.select('text').text(elevLabel);
         };
 
+        const renderMileageLabels = ()=>{
+            const mileages = [
+                {
+                    distance: 17.1,
+                    label: 'Bear Mountain',
+                    profileLength: 17.108683899597303,
+                    z: 7082.294189887998
+                },
+                {
+                    distance: 19.9,
+                    label: 'Skyline',
+                    profileLength: 19.920233139629595,
+                    z: 7826.249922356004
+                },
+                {
+                    distance: 27,
+                    label: 'Grandview 3',
+                    profileLength: 27.001986869129006,
+                    z: 7612.670191111983
+                },
+            ];
+
+            mileages.forEach(d=>{
+                const label = g.append('g')
+                    .attr('class', 'label')
+                    .attr('transform', `translate(${xScale(d.profileLength)}, ${yScale(d.z)})`);
+
+                label.append('circle')
+                    .style('fill', 'rgba(230,230,230,.8)')
+                    .style('stroke', 'rgba(230,230,230,.6)')
+                    .attr('r', 3);
+
+                label.append('text')
+                    .text(d.label)
+                    .attr('x', 9)
+                    .attr('dy', '.35em');
+            });
+        };
+
         renderChart();
+        renderMileageLabels();
         initFocus();
     };
 
@@ -291,6 +349,10 @@ require([
 
         this.getElevationProfileLength = ()=>{
             return elevProfileData.results[0].value.features[0].attributes.ProfileLength;
+        };
+
+        this.numberWithCommas = (x) => {
+            return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         };
     };
 
