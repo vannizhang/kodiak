@@ -293,6 +293,12 @@ require([
         const renderMileageLabels = ()=>{
             const mileages = [
                 {
+                    distance: 11.85,
+                    label: 'Sugarloaf',
+                    profileLength: 11.850443658877298,
+                    z: 7034.889988896004
+                },
+                {
                     distance: 17.1,
                     label: 'Bear Mountain',
                     profileLength: 17.108683899597303,
